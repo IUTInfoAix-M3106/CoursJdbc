@@ -1,0 +1,777 @@
+\documentclass[xcolor=pdftex,x11names,table]{beamer}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[frenchb]{babel}
+\usepackage{colortbl}
+
+\usepackage{tikz}
+\usetikzlibrary{decorations,arrows,shapes,backgrounds,shadows,calc}
+\usetikzlibrary{positioning}
+\usetikzlibrary{automata}
+
+\usepackage{ifthen}
+\usepackage{changepage}
+
+\usepackage{listings}
+
+\setbeamertemplate{blocks}[rounded][shadow=true]
+
+\title[Persistance des données]{Persistance des données en Java}
+%\author{Sébastien NEDJAR}
+%\institute{IUT d'Aix-en-Provence}
+\date{}
+
+\usecolortheme{crane}
+\definecolor{couleurprincipale}{HTML}{FFCC00}
+
+\AtBeginSection[]
+{
+  \begin{frame}<beamer>
+    \frametitle{Plan}
+    \tableofcontents[currentsection,hideothersubsections]
+  \end{frame}
+}
+
+\begin{document}
+  \lstset{             
+    breaklines=true,                                     % line wrapping on
+    %frame=ltrb,
+    %samepage=true,
+    language=Java,
+    basicstyle=\normalsize,
+    frameround=ftft,
+    keywordstyle=\ttfamily\color{SeaGreen4},
+    identifierstyle=\ttfamily\bfseries\color{RoyalBlue4},
+    commentstyle=\color{RoyalBlue3},
+    stringstyle=\ttfamily,
+    showstringspaces=false,
+    tabsize=2,  
+  }
+
+  % For every picture that defines or uses external nodes, you'll have to
+  % apply the 'remember picture' style. To avoid some typing, we'll apply
+  % the style to all pictures.
+  \tikzstyle{every picture}+=[remember picture]
+  \tikzstyle{na} = [baseline=-.5ex]
+
+  % ---------- Titre -----------
+  \begin{frame}
+  \titlepage
+  \end{frame}
+  % ----------------------------
+  \section{Présentation du cours}
+    \begin{frame}{Introduction}
+      En programmation, la gestion de persistance des données se réfère aux mécanismes 
+      responsables de la sauvegarde et la restauration de données, afin que l'état ou les données 
+      d'un programme puissent lui survivre dans le temps et dans l'espace.
+      \pause 
+      \begin{itemize}[<+->]
+      	\item La première solution simple de persistance est l'utilisation des fichiers (binaires, textes, plats, XML, ...)
+      	\item Pour une application répartie, les fichiers ne suffisent plus. 
+      	  Il faut donc une solution pour centraliser toutes les données persistantes.
+      	\item Dans la majorité des cas on souhaite déléguer la gestion des données 
+      	  persistantes à une base de données relationnelle.
+      \end{itemize}
+    \end{frame}
+    
+    \begin{frame}{Pourquoi une BD relationnelle ?}
+      \begin{itemize}
+        \item Une théorie solide et des normes reconnues.
+        \item Facilité d'accès et généricité du langage de requête SQL.
+        \item Grande efficacité pour effectuer des recherches complexes 
+        dans des grandes bases de données.
+        \item Sécurité et intégrité des données.
+        \item Transaction et gestion de la concurrence.
+        \item Faculté de gestion d'énormes volumes de données. 
+        \item Technologie largement dominante dans toute l'industrie informatique pour la gestion des données.
+        \item Large offre commerciale répondant à un très large panel de besoins.
+      \end{itemize}
+      \pause
+      La question que l'on va se poser dans ce cours sera donc "comment gérer \emph{proprement} la persistance des données 
+      avec un SGBD-R dans une application développée dans un langage orienté objet comme Java ?"
+    \end{frame}
+    
+    \begin{frame}{Limites des BD relationnelles}
+      \begin{itemize}
+        \item Les données des applications sont modélisées en objet et non en relationnel.
+        \item Le relationnel est moins riche que le modèle objet : Pas d'héritage, 
+        pas de composition ni d'attribut multivalué.
+        \item La modélisation est faite pour des données ayant une structures quasi immuable. Il est très coûteux de 
+        modifier le schéma d'une table en production. Le modèle est peu adapté aux données faiblement structurées.
+        \item La situation oligopolistique du marché des gros SGBD-R implique un coût d'accès prohibitif à certaines technologies 
+        (BD réparties, Caches, Clusters, ...).
+      \end{itemize}
+      Toutes ces limites ont permis l'émergence récente d'un nouveau type de base de données : les BD "\emph{NoSQL}" 
+      (Not Only SQL). Elles sont très en vogue ces derniers temps car elles comblent un besoin marginal mais non 
+      satisfait par les BD relationnelles.
+    \end{frame}
+    
+    \begin{frame}{Applications réparties : l'architecture 3-tiers}
+      L'architecture 3-tiers, également connue sous le nom de client-serveur distribué, sépare l'application en 
+      trois niveaux de services distincts :
+      \begin{itemize} 
+        \item premier niveau : l'affichage et les traitements locaux (contrôles de saisie, mise en forme des données
+        etc.) sont pris en charge par le client;
+        \item deuxième niveau : les traitements applicatifs globaux relatifs au domaine de l'application (traitements « métiers »).
+        Ils sont pris en charge par le service applicatif;
+        \item troisième niveau : les services de base de données sont pris en charge par un SGBD.
+      \end{itemize}
+      Généralement les différents niveaux sont nommés respectivement ainsi : la couche présentation, la couche métier et la couche de persistance.
+    \end{frame}
+    
+    \begin{frame}{Persistance en Java}
+      La plate-forme Java met à disposition des développeurs plusieurs technologies pour accéder aux données d'un SGBD-R :
+      \pause
+      \begin{itemize} 
+        \item Outils fondés sur les concepts relationnels (Relation, Tuple, ...)
+          \begin{itemize} 
+            \item JDBC
+          \end{itemize}\pause
+          \item Outils fondés sur les concepts objets (Classe, Objet, ...)
+          \begin{itemize} 
+            \item JDO
+            \item Toplink
+            \item MyBatis
+            \item JPA 2 (Java Persistence API)
+              \begin{itemize}
+                \item EclipseLink
+                \item Hibernate
+                \item OpenJPA
+              \end{itemize}
+          \end{itemize}                            
+      \end{itemize}
+      \pause
+      Dans ce cours nous allons étudier un produit de chaque famille pour comprendre concrètement leurs avantages et 
+      leurs limites respectives.        
+    \end{frame}
+
+  \section{Persistance fondée sur les concepts relationnels : JDBC}
+  \subsection{Introduction}
+    \begin{frame}{Java DataBase Connectivity}
+      JDBC (Java DataBase Connectivity) est une interface de programmation créée par Sun Microsystems, 
+      pour les programmes utilisant la plate-forme Java. Il permet aux applications Java d'accéder par le biais d'une 
+      interface commune à des sources de données tabulaires (principalement relationnelles) pour lesquelles il existe 
+      un pilote JDBC.\pause
+      \vfill
+      Les objectifs de JDBC sont les suivants : 
+      \begin{itemize}
+        \item Fournir une interface uniforme permettant un accès homogène aux SGBD
+        \item Être simple à mettre en œuvre.
+        \item Être indépendant du SGBD cible en n'utilisant que les fonctionnalités fournies par SQL.
+      \end{itemize}
+    \end{frame}
+  
+    \begin{frame}{Architecture de JDBC}
+      \begin{columns}[c]
+        \begin{column}{0.5\paperwidth}
+          JDBC est constitué de 3 couches logicielles distinctes :  
+          \begin{itemize}
+          	\item<2-> Une API constituée principalement d'interfaces (au sens Java) qui 
+          	sera utilisée par le code client.
+            \item<3-> Le Driver Manager qui s'occupe de dialoguer avec le pilote propre au SGBD choisi.
+            \item<4-> Le Driver (ou pilote) qui a pour rôle de transformer les appels en ordres compréhensibles par le SGBD cible.
+          \end{itemize}
+        \end{column}
+        \begin{column}{0.4\paperwidth}
+          \begin{tikzpicture}[node distance=0.7cm,trans/.style={thick,<->,shorten >=2pt,shorten <=2pt,>=stealth}]
+              \setbeamercovered{invisible}
+               
+               \node[draw, rectangle,minimum width=80] at(0,0) (code) {Application};\pause
+               \node[draw, rectangle,minimum width=80] (jdbc_api) [below = of code] {JDBC API};
+               \draw[trans] (code) -- (jdbc_api);\pause
+ 
+               \node[draw, rectangle,minimum width=80] (driver_manager) [below =0mm of jdbc_api] {Driver Manager};\pause              
+               \node[draw, rectangle,minimum width=80] (driver) [below =0mm of driver_manager] {Driver};\pause
+               \node[draw, cylinder, alias=cyl, shape border rotate=90, aspect=1.6, %
+                     minimum height=45, minimum width=80, outer sep=-0.5\pgflinewidth, %
+                      color=orange!40!black, left color=orange!70, right color=orange!80,%
+                      middle color=white] (sgbd) [below=1cm of driver] {};
+                      
+               \node at (sgbd) {SGBD};
+               
+               \draw[trans] (sgbd) -- node[pos=0.5] (milieu) {} (driver);
+               \path (driver.east|-milieu) -- ++(5mm,0) node (bord_d) {};
+               \path (driver.west|-milieu) -- ++(-5mm,0) node (bord_g) {};
+               \draw[thick,dashed] (bord_g) -- (bord_d);
+               
+          \end{tikzpicture}
+        \end{column}       
+      \end{columns}    
+    \end{frame}
+
+    \begin{frame}{API JDBC}
+      L'API JDBC permet principalement de faire 3 types de choses : 
+      \begin{itemize}
+        \item Établir une connexion avec une BD ou toute autre source de données tabulaires.
+        \item Envoyer des ordres écrits en SQL.
+        \item Traiter les résultats.
+      \end{itemize}\pause
+      Elle est fournie par les packages \lstinline$java.sql$ et \lstinline$javax.sql$. 
+      Ils contiennent les principales interfaces suivantes : 
+      {\tt 
+      \begin{itemize}
+        \item \lstinline$Statement$, \lstinline$CallableStatement$, \lstinline$PreparedStatement$
+        \item \lstinline$DatabaseMetaData$, \lstinline$ResultSetMetaData$
+        \item \lstinline$ResultSet$
+        \item \lstinline$Connection$, \lstinline$Driver$
+      \end{itemize}
+      }
+    \end{frame}
+
+    \begin{frame}{API JDBC : interfaces principales}
+      \begin{itemize}
+        \item \lstinline$Driver$: renvoie une instance de \lstinline$Connection$
+        \item \lstinline$Connection$: connexion à une base
+        \item \lstinline$Statement$: instruction SQL
+        \item \lstinline$PreparedStatement$: instruction SQL paramétrée
+        \item \lstinline$CallableStatement$: procédure stockée dans la base
+        \item \lstinline$ResultSet$: ensemble de tuples retourné par une requête SQL
+        \item \lstinline$ResultSetMetaData$: description des tuples récupérés
+        \item \lstinline$DatabaseMetaData$: informations sur la base de données
+      \end{itemize}    
+    \end{frame}    
+    
+    \begin{frame}{Traitement d’un ordre SQL}
+      Le scénario pour traiter un ordre SQL avec JDBC est le suivant :
+      \begin{enumerate}
+        \item Importer l'API.
+        \item Enregistrer le pilote JDBC (Optionnel depuis JDBC 4.0).
+        \item Connexion à la base de données.
+        \item Création d’une instruction SQL.
+        \item Exécution de la requête.
+        \item Traitement de l’ensemble des résultats.
+        \item Libération des ressources et fermeture de la connexion.
+      \end{enumerate}
+      Étant donné que chaque étape est susceptible de rencontrer des erreurs, 
+      il faut rajouter une étape de gestion des exceptions.
+    \end{frame}
+		\lstset{basicstyle=\scriptsize,language=Java}
+		
+    \subsection{Traitement d’une requête SQL}
+    
+    \begin{frame}[fragile]
+			\frametitle{Traitement d’une requête SQL}
+			\begin{lstlisting}
+import java.sql.*;// Import de l'API
+public class App {
+  static String req="SELECT ID, NAME FROM ARTIST";
+  public static void main(String[] args){
+    try {
+      //Connexion a la BD
+      Connection conn = DriverManager.getConnection("jdbc:oracle:...","user","pwd");
+      //Creation d'une instruction
+      Statement stmt = conn.createStatement();
+      //Execution de la requete
+      ResultSet rset = stmt.executeQuery(req);
+      //Traitement des resultats
+      while (rset.next()){
+        System.out.println(rset.getString("NAME"));
+      }
+      stmt.close();//Liberation des ressources
+      conn.close();//Deconnexion de la BD
+    } catch (SQLException e) {
+      e.printStackTrace();//Arggg!!!
+    }
+  }
+}
+			\end{lstlisting}
+		\end{frame}
+		
+		\lstset{basicstyle=\normalsize}
+		\begin{frame}{Interface \lstinline$Driver$}
+			\begin{itemize}
+	      \item La méthode \lstinline$connect()$ de \lstinline$Driver$
+	   		  \begin{itemize}
+	      		\item Prend en paramètre une URL vers la BD.
+	      		\item Retourne un objet \lstinline$Connection$ qui permettra de créer des requêtes.
+	      	\end{itemize}
+	      \item URL pour accéder à la base (syntaxe dépend du SGBD cible)
+	      	\begin{itemize}
+	      		\item \texttt{jdbc:<sous-protocole>:<nom-BD>?param=valeur, ...}
+	      		\item sous-protocole: \texttt{oracle:thin}
+	      		\item nom-BD: \texttt{@//allegro.iut.univ-aix.fr:1522/orcl}
+	      		\item Par exemple :
+					  	\begin{itemize}
+					  		\item \texttt{jdbc:oracle:thin:@//allegro:1522/orcl} 
+					  		\item \texttt{jdbc:derby://localhost:1527/beeDB}
+					  		\item \texttt{jdbc:mysql://localhost:3306/FloyDB}
+					  	\end{itemize}
+	      	\end{itemize}
+			\end{itemize}
+		\end{frame}
+
+    \begin{frame}
+    \frametitle{Étape 2 : enregistrer le pilote}
+    	Cette étape est automatique depuis la version 4.0 de JDBC. Si vous ne disposez pas d'un driver 
+    	compatible l'enregistrement est manuel.
+    	\begin{itemize}
+	      \item La classe \lstinline$DriverManager$ a pour but de gérer les différents drivers (instances de Driver).
+	      \item Pour qu'un driver soit disponible, il faut charger sa classe en mémoire. Pour que la JVM accepte 
+	      de le charger il faut que son archive \emph{jar} soit dans le \texttt{CLASSPATH}.
+    	\end{itemize}
+    	\pause
+    	\vfill
+    	\begin{block}{}
+    	\lstinline$Class.forName("oracle.jdbc.driver.OracleDriver");$
+    	\end{block}
+    	\vfill
+    	\pause
+    	\begin{itemize}
+	      \item Cette instruction crée une instance du driver et l'enregistre auprès de la classe \lstinline$DriverManager$.
+    	\end{itemize}
+    \end{frame}
+    
+    \begin{frame}
+    \frametitle{Étape 3 : connexion à la base de données}
+    	Pour se connecter, on utilise la méthode \lstinline$getConnection()$ de \lstinline$DriverManager$. 
+    	Elle admet trois \lstinline$String$ paramètres :
+    	\begin{itemize}
+    		\item L’URL de la base de données.
+				\item Le nom d'utilisateur.
+				\item Le mot de passe de l'utilisateur.
+			\end{itemize}
+   		\pause
+			\begin{block}{}
+   			   	\lstinline$Connection conn = DriverManager.getConnection(url, user, pwd);$
+ 			\end{block}
+    	\pause
+    	\begin{itemize}
+	      \item Le \lstinline$DriverManager$ essaye tous les drivers enregistrés (chargés en mémoire avec \lstinline$Class.forName()$) 
+	      jusqu’à ce qu’il trouve un driver qui lui fournisse une instance de \lstinline$Connection$.
+	      \item Les connexions sont des ressources coûteuses et longues à obtenir, il faut donc éviter 
+	      d'en ouvrir une pour chaque requête à exécuter.
+    	\end{itemize}  
+    \end{frame}
+
+    \begin{frame}
+    \frametitle{Étape 4 : création d’une instruction SQL}
+		  L'interface \lstinline$Statement$ possède les méthodes nécessaires pour réaliser les requêtes sur 
+		  la base associée à la connexion dont il dépend. Il existe 3 types de \lstinline$Statement$ :\pause
+		  \begin{enumerate}[<+->]
+				\item Les \lstinline$Statement$ : Ils permettent d'exécuter n'importe quelle requête sans paramètre. La requête est 
+				interprétée par le \textsc{Sgbd} au moment de son exécution. Ce type d'ordre est à utiliser principalement 
+				pour les requêtes à usage unique.
+				\item Les \lstinline$PreparedStatement$ : Ils permettent de précompiler un ordre avant son exécution. Ils sont 
+				particulièrement importants pour les ordres destinés à être exécutés plusieurs fois comme par exemple les 
+				requêtes paramétrées.
+				\item Les \lstinline$CallableStatement$ : Ils sont destinés à l'appel des procédures stockées.
+			\end{enumerate}
+    \end{frame}
+
+    \begin{frame}
+    \frametitle{Étape 4 : création d’une instruction SQL}
+	    À partir d'une instance de l’objet \lstinline$Connection$, on récupère une nouvelle instance de \lstinline$Statement$.
+	    \begin{block}{}
+    		\lstinline$Statement s1=connexion.createStatement();$\\
+        \lstinline$PreparedStatement s2=connexion.prepareStatement(req);$\\
+        \lstinline$CallableStatement s3=connexion.prepareCall(req);$
+      \end{block}
+    \end{frame}
+
+    \begin{frame}
+    \frametitle{Étape 5 : Exécution de la requête}
+    	Afin d’exécuter une requête, il suffit de faire appel à l’une des méthodes \lstinline$executeXXXX()$
+    	de l’objet \lstinline$Statement$ que l’on vient de créer. Il existe 3 types d'exécution : 
+    	\begin{itemize}
+    		\item Les interrogation de données : on utilise la méthode \lstinline$executeQuery()$ en lui passant 
+				en paramètre une chaîne de caractères (\lstinline$String$) contenant la requête. Cette méthode retourne 
+				un objet du type \lstinline$ResultSet$ contenant l'ensemble des résultats de la requête.
+        \item Les modifications de données (INSERT, UPDATE, DELETE) :  exécutés avec la
+				méthode \lstinline$executeUpdate()$ qui retourne un entier correspondant au nombre de lignes impactées par la mise à jour.
+        \item Nature inconnue, plusieurs résultats ou procédures stockées : on utilise la méthode \lstinline$execute()$.
+      \end{itemize}
+    \end{frame}
+    
+    \begin{frame}
+    \frametitle{Étape 6 : Traitement de l’ensemble des résultats}
+    	\begin{itemize}
+    		\item \lstinline$executeQuery()$ renvoie une instance de	\lstinline$ResultSet$
+    		\item \lstinline$ResultSet$ va permettre de parcourir toutes les lignes renvoyées par le SELECT
+    		\item Au début, \lstinline$ResultSet$ est positionné avant la première ligne et il faut donc commencer par le faire avancer 
+    		à la première ligne en appelant la méthode \lstinline$next()$
+    		\item Cette méthode permet de passer à la ligne suivante ; elle renvoie \lstinline$true$ si cette ligne suivante existe et \lstinline$false$ sinon.
+			\end{itemize}
+			\begin{block}{}
+				\lstinline$ResultSet rset = stmt.executeQuery(req);$\\
+				\lstinline$while (rset.next())$\\
+				\lstinline$\ \ \ \ System.out.println(rset.getString(2));$\\
+      \end{block}
+    \end{frame}
+    
+    \begin{frame}
+    \frametitle{Différents types de \lstinline$ResultSet$}
+      Il existe quatre types de \lstinline$ResultSet$:
+    	\begin{description}
+    		\item[Scroll-insensitive:] Vision figée du résultat de la requête au moment de son évaluation.
+        \item[Scroll-sensitive:] Le \lstinline$ResultSet$ montre l'état courant des données (modifiées/détruites).
+        \item[Read-only:] Pas de modification possible (version par défaut) donc un haut niveau de concurrence.
+        \item[Updatable:] Possibilité de modification donc pose de verrou et faible niveau de concurrence.
+			\end{description}
+			\begin{block}{}
+        \lstinline$Statement stmt = con.createStatement( $\\
+        \lstinline$\ \ ResultSet.TYPE_SCROLL_INSENSITIVE, $\\
+        \lstinline$\ \ ResultSet.CONCUR_UPDATABLE); $\\
+        \lstinline$ResultSet rs=stmt.executeQuery("SELECT * FROM ARTIST");$\\
+      \end{block}
+      Ce \lstinline$ResultSet$ est modifiable mais il ne reflète pas les modifications faites par d'autres transactions.
+    \end{frame}
+     
+    \begin{frame}
+    \frametitle{Déplacement dans un \lstinline$ResultSet$}
+      Depuis JDBC 3.0, on peut se déplacer à l'intérieur d'un \lstinline$ResultSet$. Ci dessous sont 
+      listées les méthodes de déplacement :
+      \begin{itemize}
+    		\item \lstinline$rs.first();$
+    		\item \lstinline$rs.beforeFirst();$
+    		\item \lstinline$rs.next();$
+    		\item \lstinline$rs.previous();$
+    		\item \lstinline$rs.afterLast();$
+    		\item \lstinline$rs.absolute( n );$
+    		\item \lstinline$rs.relative( n );$
+    	\end{itemize}
+    	Les tuples de l'ensemble de résultats n'étant chargés qu'à la demande(avec un préchargement), 
+    	un parcours aléatoire peut s'avérer très coûteux. 
+    \end{frame}  
+    
+    \begin{frame}
+    \frametitle{Modification d'un ResultSet}
+      Modification :
+			\begin{block}{}
+        \lstinline$rs.absolute(100);$\\
+        \lstinline$rs.updateString("NAME", "RICHARD");$\\
+        \lstinline$rs.updateRow();$\\
+      \end{block}
+      Destruction: 
+      \begin{block}{}
+        \lstinline$rs.deleteRow();$\\
+      \end{block}
+      Insertion de lignes:
+      \begin{block}{}
+        \lstinline$rs.moveToInsertRow();$\\
+        \lstinline$rs.updateString("NAME", "ROGER");$\\
+        \lstinline$rs.insertRow();$\\
+        \lstinline$rs.first();$\\
+      \end{block}
+    \end{frame}  
+    
+    \begin{frame}
+    \frametitle{Étape 6 : Traitement de l’ensemble des résultats}
+    	\begin{itemize}
+    		\item Quand un \lstinline$ResultSet$ est positionné sur une ligne, les méthodes \lstinline$getXXX$ permettent de récupérer
+				les valeurs des colonnes de la ligne :
+				    	\begin{itemize}
+    						\item \lstinline$getXXX(int numeroColonne)$ (position dans le SELECT de la valeur à récupérer)
+    						\item \lstinline$getXXX(String nomColonne)$ (nom simple d’une colonne, pas préfixé par un nom de table; dans le cas d’une jointure utiliser un alias de colonne)
+							\end{itemize}
+				\item \lstinline$XXX$ désigne le type Java de la valeur que l'on va récupérer, par exemple \lstinline$String$, \lstinline$int$ ou \lstinline$double$.
+				\item Par exemple, \lstinline$getInt$ renvoie un \lstinline$int$.
+			\end{itemize}\pause
+			\begin{block}{}
+				\lstinline$ResultSet rset = stmt.executeQuery(req);$\\
+				\lstinline$while (rset.next())$\\
+				\lstinline$\ \ \ \ System.out.println(rset.getInt(1));$\\
+      \end{block}
+    \end{frame}
+    \begin{frame}
+    \frametitle{Correspondance de types entre Java et SQL}
+    	\begin{itemize}
+    		\item Tous les SGBD n’ont pas les mêmes types SQL; 
+    		même les types de base peuvent présenter des différences importantes.
+				\item Pour cacher ces différences, JDBC définit ses propres types SQL 
+				dans la classe \lstinline$Types$.
+				\item Le driver JDBC fait la traduction de ces types dans les types du SGBD.
+				\item Il reste le problème de la correspondance entre les types Java et les types SQL.
+				C'est le rôle de \lstinline$getXXX$ et de \lstinline$setXXX$. 
+				\item Par exemple, \lstinline$getString$ indique que l’on veut récupérer la donnée SQL dans une \lstinline$String$.
+				\item Si le \lstinline$Driver$ n'arrive pas à effectuer la conversion, il lève une exception.
+    	\end{itemize}
+    \end{frame}
+
+    \begin{frame}
+    \frametitle{Correspondance de types entre Java et SQL}
+    	\begin{center}
+	      \rowcolors{2}{couleurprincipale!20}{couleurprincipale!10} 
+	      \begin{tabular}{c|c}
+	        \hline
+	        \rowcolor{couleurprincipale!80}
+					SQL &       Java  \\ \hline
+					CHAR&       \lstinline$String$\\
+					VARCHAR& 	  \lstinline$String$\\
+					NUMERIC& 	  \lstinline$java.math.BigDecimal$\\
+					DECIMAL& 	  \lstinline$java.math.BigDecimal$\\
+					BIT& 	      \lstinline$boolean$\\
+					TINYINT& 	  \lstinline$byte$\\
+					SMALLINT& 	\lstinline$short$\\
+					INTEGER &	  \lstinline$int$\\
+					BIGINT& 	  \lstinline$long$\\
+					REAL& 	    \lstinline$float$\\
+					FLOAT& 	    \lstinline$double$\\
+					DOUBLE& 	  \lstinline$double$\\
+					BINARY& 	  \lstinline$byte[]$\\
+					VARBINARY& 	\lstinline$byte[]$\\
+			        	\hline
+			  \end{tabular}
+	    \end{center}   
+    \end{frame}
+
+    \begin{frame}
+    \frametitle{Correspondance de type entre Java et SQL}
+    	\begin{center}
+	      \rowcolors{2}{couleurprincipale!20}{couleurprincipale!10} 
+	      \begin{tabular}{c|c|c}
+	        \hline
+	        \rowcolor{couleurprincipale!80}
+					SQL &      Java & Explication  \\ \hline
+					DATE&      \lstinline$java.sql.Date$& 	codage de la date\\
+					TIME&      \lstinline$java.sql.Time$& 	codage de l'heure\\
+					TIMESTAMP& \lstinline$java.sql.TimeStamp$& 	codage de la date et de l'heure\\ \hline
+			  \end{tabular}
+	    \end{center}   
+    \end{frame}
+
+    \begin{frame}
+    \frametitle{Gestion des valeurs nulles}
+			Comment reconnaître dans Java le cas d’une valeur NULL de SQL ? \\
+			Pour les méthodes \lstinline$getXXX()$, la convention est la suivante :
+    	\begin{itemize}
+    		\item Les méthodes \lstinline$getString()$, \lstinline$getObject()$, ..., \lstinline$getDate()$ retournent une référence \lstinline$null$.
+				\item Les méthodes \lstinline$getInt()$, \lstinline$getByte()$, ..., \lstinline$getShort()$ retournent la valeur $0$.
+				\item La méthode \lstinline$getBoolean()$ renvoie la valeur \lstinline$false$.
+  		\end{itemize}
+  		Cette convention implique que l'on ne peut pas distinguer un \texttt{NULL} d'un zéro.
+  		La méthode \lstinline$wasNull()$ de \lstinline$ResultSet$ permet de vérifier si le dernier \lstinline$getXXX()$ 
+  		a retourné un \texttt{NULL}.
+    \end{frame}
+    
+    \begin{frame}
+    \frametitle{Étape 7 : Libération des ressources}
+    %\transboxin
+    	\begin{itemize}
+    		\item Toutes les ressources JDBC doivent être fermées dès qu’elles ne sont plus utilisées.
+    		\item Le plus souvent, la fermeture doit se faire dans un bloc \lstinline$finally$ pour qu’elle ait 
+    		lieu quel que soit le déroulement des opérations (avec ou sans erreurs).
+				\item Un \lstinline$Statement$ ou un \lstinline$ResultSet$ fermé ne peut plus être utilisé. La fermeture d'un 
+				\lstinline$Statement$ ferme automatiquement les \lstinline$ResultSet$ qui lui sont associés.
+				\item La \lstinline$Connection$ étant une ressource coûteuse, elle doit être impérativement fermée. 
+				Si possible utilisez un \emph{pool} de connexion.
+			\end{itemize}
+			\begin{block}{}
+				\lstinline$rset.close();$\\
+				\lstinline$stmt.close();$\\
+				\lstinline$conn.close();$
+      \end{block}
+    \end{frame}
+
+    \begin{frame}
+    \frametitle{Étape 8: Gestion des exceptions}
+    	\begin{itemize}
+    		\item Une \lstinline$SQLException$ (ou un objet héritant de cette classe) est levée dès qu’une connexion 
+    		ou un ordre SQL ne se déroule pas correctement.
+    		  \begin{itemize}
+    				\item La méthode \lstinline$getMessage()$ permet d'obtenir le message d'erreur en clair.
+					\end{itemize}
+				\item Pour distinguer des types d’exception, JDBC a introduit 3 sous-classes de \lstinline$SQLException$ :
+				  \begin{itemize}
+    				\item \lstinline$SQLNonTransientException$ : le problème ne peut être résolu sans une action externe ; 
+    				inutile de réessayer la même action sans rien faire de spécial.
+    				\item \lstinline$SQLTransientException$ : le problème peut avoir été résolu si on attend un peu avant 
+    				d’essayer à nouveau.
+    				\item \lstinline$SQLRecoverableException$ : l’application peut résoudre le problème en exécutant une 
+    				certaine action mais elle devra fermer la connexion actuelle et en ouvrir une nouvelle.
+					\end{itemize}
+			\end{itemize}
+		\end{frame}
+		
+		\begin{frame}
+    \frametitle{Étape 8: Gestion des exceptions}
+    	\begin{itemize}
+    		\item Une requête SQL peut provoquer plusieurs exceptions
+    		\item On peut obtenir la prochaine exception par la méthode \lstinline$getNextException()$
+    		\item Une exception peut avoir une cause ; on l'obtient par la méthode \lstinline$getCause()$
+    		\item Toutes ces exceptions peuvent être parcourues par une boucle « for-each » :\\
+    		\lstinline$for (Throwable e : ex) \{...\}$ 
+			\end{itemize}
+		\end{frame}
+		
+		\subsection{Traitement d’un ordre de modification des données}
+		\begin{frame}[fragile]
+    \frametitle{Insertion de tuples}
+      Pour insérer un nouveau tuple dans la BD, il suffit d'exécuter l'instruction \texttt{INSERT} de la manière suivante :
+      \pause
+      \begin{block}{}
+    	  \begin{lstlisting}
+Statement st = conn.createStatement();
+int nb = st.executeUpdate(
+    "INSERT INTO ARTIST(ID, NAME) " +
+    "VALUES (" + id + ", '" + nom + "')"
+    );
+System.out.println(nb + " tuple insere");
+st.close();
+			  \end{lstlisting}
+			\end{block}
+			Le principe est identique pour les instructions \texttt{UPDATE} et \texttt{DELETE}.\\
+			Si l'on doit exécuter un grand nombre de modifications ce genre de solution est coûteuse 
+			et difficile à mettre en œuvre.		
+		\end{frame}
+
+		\begin{frame}[fragile]
+    \frametitle{Ordre SQL paramétrée}
+      Les paramètres dans un ordre SQL permettent d'économiser des ressources en évitant de recompiler 
+      plusieurs fois les mêmes requêtes.
+      \pause
+      \begin{block}{}
+    	  \begin{lstlisting}
+PreparedStatement st = conn.prepareStatement(
+    "UPDATE ARTIST SET AGE = ? " +
+    "WHERE NAME = ? ");
+for( ... ) {
+    st.setInt(1, age[i]);
+    st.setString(2, nom[i]);
+    st.execute();
+}       
+        \end{lstlisting}
+			\end{block}
+			On remarquera l'utilisation de la méthode \lstinline$execute()$
+		\end{frame}
+		
+		
+		\subsection{Traitement d’un appel de procédure stockée}
+		\begin{frame}[fragile]
+    \frametitle{Traitement d’un appel de procédure stockée}
+      Lorsqu'un traitement peut être fait directement par le SGBD, on utilisera les procédures stockées.\pause  
+      \begin{block}{}
+    	  \begin{lstlisting}
+CallableStatement s = conn.prepareCall(
+    "{call ma_procedure[(?,?)]}");
+// fixer le type de parametre de sortie
+s.registerOutParameter(2,java.sql.Types.FLOAT);
+//fixer la valeur du parametre
+s.setInt(1,valeur);
+s.execute();
+System.out.println("res = " + s.getFloat(2));
+        \end{lstlisting}
+			\end{block}
+			Ce type de traitement permet d'économiser des ressources en évitant beaucoup de transferts de données inutiles.
+		\end{frame}
+		
+		\begin{frame}
+    \frametitle{Gestion des transactions}
+      Par défaut, les connections JDBC fonctionnent en mode "Auto Commit". Pour pouvoir utiliser les transactions, il 
+      faut au préalable désactiver ce mode pour la connexion courante.
+    	\begin{itemize}
+    		\item \lstinline$conn.setAutoCommit(false);$
+    		\item \lstinline$conn.commit();$
+    		\item \lstinline$conn.rollback();$
+			\end{itemize}
+			Combinée avec une bonne gestion des erreurs, les transactions permettent de garantir l'intégrité des données.
+		\end{frame}
+		
+		\subsection{Les Meta Informations}
+		\begin{frame}
+    \frametitle{Les Meta Informations}
+    	\begin{itemize}
+    		\item JDBC permet de récupérer des informations sur le type de données que l'on vient de récupérer par un 
+    		\texttt{SELECT} (interface \lstinline$ResultSetMetaData$),
+    		\item mais aussi sur la base de données elle-même (interface \lstinline$DatabaseMetaData$).
+    		\item Les données que l’on peut récupérer avec \lstinline$DatabaseMetaData$ dépendent du SGBD avec lequel 
+    		on travaille.
+			\end{itemize}
+		\end{frame}
+		
+		\begin{frame}
+    \frametitle{Méta Informations sur les Result Set}
+      \begin{block}{}
+        \lstinline$ResultSetMetaData rsmd = rs.getMetaData();$
+      \end{block}
+    	Informations disponibles :
+    	\begin{itemize}
+    		\item nombre de colonnes (\lstinline$getColumnCount()$),
+        \item libellé d'une colonne (\lstinline$getColumnName(int column)$),
+        \item table d'origine (\lstinline$getTableName(int column)$),
+        \item type associé à une colonne (\lstinline$getColumnType(int column)$),
+        \item la colonne est-elle nullable ? (\lstinline$isNullable(int column)$)
+        \item etc.
+			\end{itemize}
+			Permet d'écrire un code plus générique s'adaptant à un plus grand nombre de requêtes.
+		\end{frame}
+		
+		\begin{frame}[fragile]
+    \frametitle{Méta Informations sur les Result Set}
+      \begin{block}{}
+    	  \begin{lstlisting}
+ResultSet rs = 
+  stmt.executeQuery("SELECT * FROM ARTIST");
+ResultSetMetaData rsmd = rs.getMetaData();
+int nbCol = rsmd.getColumnCount();
+//Affichage de la liste des colonnes
+for (int i = 1; i <= nbCol; i++) {
+  String typeCol = rsmd.getColumnTypeName(i);
+  String nomCol = rsmd.getColumnName(i);
+  System.out.println("Colonne " + i 
+    + " de nom " + nomCol 
+    + " de type " + typeCol);
+}
+        \end{lstlisting}
+			\end{block}
+		\end{frame}
+		
+		\begin{frame}
+    \frametitle{Méta Informations sur la BD}
+      \begin{block}{}
+        \lstinline$DataBaseMetaData metaData = conn.getMetaData();$
+      \end{block}
+      Informations disponibles :
+    	\begin{itemize}
+    		\item tables existantes dans la base (\lstinline$getTables()$),
+    		\item nom d'utilisateur (\lstinline$getUserName()$),
+    		\item version du pilote (\lstinline$getJDBCMajorVersion()$ et \lstinline$getJDBCMinorVersion()$),
+    		\item prise en charge des jointure externes ? (\lstinline$supportsOuterJoins()$),
+    		\item etc.
+			\end{itemize}
+			Ces informations permettent d'adapter les traitements JDBC aux capacité du SGBD cible. Le code devient ainsi plus 
+			portable.
+		\end{frame}
+		
+		\begin{frame}[fragile]
+    \frametitle{Méta Informations sur la BD}
+      \begin{block}{}
+    	  \begin{lstlisting}
+metaData = conn.getMetaData();
+String[] types = { "TABLE", "VIEW" };
+String nomTables;
+//Recuperation de la liste des tables
+ResultSet rs =
+  metaData.getTables(null, null, "%", types);
+//Traitement des resultats
+while (rs.next()) {
+  nomTable = rs.getString(3);
+  System.out.println(nomTable);
+}
+        \end{lstlisting}
+			\end{block}
+		\end{frame}
+	
+		
+		\subsection{Conclusion Temporaire}
+    \begin{frame}
+    \frametitle{Conclusion Temporaire}
+    	\begin{itemize}
+				\item Interface pour un accès homogène aux BD:
+					\begin{itemize}
+						\item Le concept de Driver masque au maximum les différences des SGBD.
+						\item API de bas niveau: il faut connaître SQL.
+					\end{itemize}
+				\item Tous les éditeurs proposent un driver JDBC.
+				\item Problèmes :
+					\begin{itemize}
+						\item JDBC n'effectue aucun contrôle sur les instructions SQL qui sont entièrement interprétées par le SGBD.
+						\item Implique l'existence de SQL dispersé dans du code Java (application polyglotte).
+						\item Correspondance entre classes Java et relations est un travail de bas niveau.
+					\end{itemize}
+			\end{itemize}
+    \end{frame}
+        
+  \section{Persistance fondée sur les concepts objets}
+  
+\end{document}
+
